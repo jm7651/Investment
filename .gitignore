@@ -1,0 +1,8 @@
+node_modules/
+.env
+*.db
+__pycache__/
+.vercel/
+dist/
+.expo/
+.claude/

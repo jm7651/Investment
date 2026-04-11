@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+python-dotenv
+anthropic
+yt-dlp
+google-api-python-client
+apscheduler
+pydantic
+beautifulsoup4
+pymupdf
