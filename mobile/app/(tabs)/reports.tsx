@@ -526,15 +526,7 @@ export default function ReportsScreen() {
     fetchCrosscheck(selectedDate);
   }, [selectedDate, dates]);
 
-  // 종목 배치 데이터 로드 (currentSummary 변경 시)
-  useEffect(() => {
-    if (!currentSummary?.stocks_mentioned) return;
-    const codes = currentSummary.stocks_mentioned
-      .map((s: any) => s.code)
-      .filter((c: string | null) => c && c.length === 6);
-    if (codes.length === 0) return;
-    stocksApi.batch(codes).then(setStockBatchData).catch(() => {});
-  }, [currentSummary]);
+  // 종목 배치 데이터 (currentSummary 아래로 이동됨)
 
   // 추천 종목 (최초 1회)
   useEffect(() => {
@@ -637,6 +629,16 @@ export default function ReportsScreen() {
   const selectedInfo = dates.find((d) => d.date === selectedDate);
   const currentSummary = selectedDate ? summaryCache[selectedDate] : null;
   const isSelectedLoading = selectedDate ? loadingSet.has(selectedDate) : false;
+
+  // 종목 배치 데이터 로드 (currentSummary 변경 시)
+  useEffect(() => {
+    if (!currentSummary?.stocks_mentioned) return;
+    const codes = currentSummary.stocks_mentioned
+      .map((s: any) => s.code)
+      .filter((c: string | null) => c && c.length === 6);
+    if (codes.length === 0) return;
+    stocksApi.batch(codes).then(setStockBatchData).catch(() => {});
+  }, [currentSummary]);
 
   return (
     <ScrollView style={styles.container}>

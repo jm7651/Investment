@@ -30,7 +30,7 @@ export default function VideoDetailScreen() {
     if (!video) return;
     try {
       setLoading(true);
-      const updated = await videosApi.resummarize(video.id);
+      const updated = await videosApi.summarize(video.id);
       setVideo(updated);
     } catch {
       Alert.alert("오류", "재요약에 실패했습니다");
