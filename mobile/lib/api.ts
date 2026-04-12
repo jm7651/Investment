@@ -3,8 +3,9 @@ import axios from "axios";
 // Expo 개발 시 localhost 대신 실제 IP 사용 필요 (Android 에뮬레이터: 10.0.2.2)
 import { Platform } from "react-native";
 
-const DEFAULT_URL = Platform.OS === "web" ? "http://localhost:8000" : "http://10.0.2.2:8000";
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || DEFAULT_URL;
+const PROD_URL = "https://stock-summarizer-api.onrender.com";
+const LOCAL_URL = Platform.OS === "web" ? "http://localhost:8000" : "http://10.0.2.2:8000";
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || PROD_URL;
 
 const api = axios.create({
   baseURL: BASE_URL,

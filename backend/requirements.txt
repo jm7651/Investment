@@ -7,5 +7,6 @@ yt-dlp
 google-api-python-client
 apscheduler
 pydantic
+psycopg2-binary
 beautifulsoup4
 pymupdf
