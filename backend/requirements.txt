@@ -3,10 +3,10 @@ uvicorn[standard]
 sqlalchemy
 python-dotenv
 anthropic
-yt-dlp
-google-api-python-client
-apscheduler
-pydantic
-psycopg2-binary
+requests
 beautifulsoup4
-pymupdf
+pydantic
+pg8000
+yt-dlp
+PyMuPDF
+google-api-python-client

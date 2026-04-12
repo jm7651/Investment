@@ -1,18 +1,13 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 from database import engine, Base
 from routers import channels, videos, stocks, reports
-from scheduler import start_scheduler
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    scheduler = start_scheduler()
-    yield
-    scheduler.shutdown()
+# 테이블 생성
+Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="YouTube Stock Summarizer", lifespan=lifespan)
+app = FastAPI(title="YouTube Stock Summarizer")
 
 app.add_middleware(
     CORSMiddleware,

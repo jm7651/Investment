@@ -8,6 +8,10 @@ load_dotenv(override=True)
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./stock_summarizer.db")
 
+# PostgreSQL이면 pg8000 드라이버 사용
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
+
 # SQLite는 check_same_thread 필요, PostgreSQL은 불필요
 connect_args = {}
 if DATABASE_URL.startswith("sqlite"):
