@@ -139,8 +139,25 @@ def get_channel_recent_videos(channel_id: str, max_results: int = 10) -> list:
         return []
 
 
+def _get_video_date(video_id: str) -> str | None:
+    """YouTube 영상 페이지에서 publishDate 추출 (빠름)"""
+    try:
+        import requests as req
+        resp = req.get(
+            f"https://www.youtube.com/watch?v={video_id}",
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=3,
+        )
+        m = re.search(r'"publishDate":"([^"]+)"', resp.text)
+        if m:
+            return m.group(1)  # "2026-04-12T04:30:09-07:00"
+    except Exception:
+        pass
+    return None
+
+
 def _get_videos_ytdlp(channel_id: str, max_results: int = 10) -> list:
-    """yt-dlp로 채널 최신 영상 목록 추출"""
+    """yt-dlp로 채널 최신 영상 목록 추출 + 날짜"""
     url = f"https://www.youtube.com/channel/{channel_id}/videos"
     ydl_opts = {
         "quiet": True,
@@ -152,16 +169,20 @@ def _get_videos_ytdlp(channel_id: str, max_results: int = 10) -> list:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             entries = info.get("entries", [])
-            return [
-                {
-                    "youtube_id": e.get("id"),
+            videos = []
+            for e in entries:
+                vid = e.get("id")
+                if not vid:
+                    continue
+                # 날짜 가져오기
+                pub_date = _get_video_date(vid)
+                videos.append({
+                    "youtube_id": vid,
                     "title": e.get("title", ""),
-                    "published_at": None,
+                    "published_at": pub_date,
                     "duration": e.get("duration", 0),
-                }
-                for e in entries
-                if e.get("id")
-            ]
+                })
+            return videos
     except Exception as e:
         print(f"yt-dlp 채널 목록 실패 ({channel_id}): {e}")
         return []

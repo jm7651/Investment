@@ -120,10 +120,20 @@ def fetch_videos(
             new_videos.append(exists)
             continue
 
+        # 날짜 파싱
+        pub_at = None
+        if v.get("published_at"):
+            try:
+                from datetime import datetime as dt
+                pub_at = dt.fromisoformat(v["published_at"].replace("Z", "+00:00"))
+            except Exception:
+                pass
+
         video = Video(
             youtube_id=v["youtube_id"],
             channel_id=channel.id,
             title=v["title"],
+            published_at=pub_at,
             status="pending",
         )
         db.add(video)
