@@ -1,6 +1,7 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from database import engine, Base
 from routers import channels, videos, stocks, reports
 
@@ -9,6 +10,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="YouTube Stock Summarizer")
 
+app.add_middleware(GZipMiddleware, minimum_size=500)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

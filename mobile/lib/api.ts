@@ -9,7 +9,7 @@ const BASE_URL = process.env.EXPO_PUBLIC_API_URL || PROD_URL;
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 180000,
+  timeout: 30000,
 });
 
 // === Types ===
@@ -187,6 +187,10 @@ export const stocksApi = {
     api.get<StockIndicators>(`/stocks/indicators/${code}`).then((r) => r.data),
   analyst: (code: string) =>
     api.get<AnalystConsensus>(`/stocks/analyst/${code}`).then((r) => r.data),
+  batch: (codes: string[]) =>
+    api.get<Record<string, { indicators: StockIndicators | null; analyst: AnalystConsensus | null }>>(
+      "/stocks/batch", { params: { codes: codes.join(",") } }
+    ).then((r) => r.data),
   list: () => api.get<StockAggregate[]>("/stocks/").then((r) => r.data),
   videos: (stockName: string) =>
     api.get(`/stocks/${encodeURIComponent(stockName)}/videos`).then((r) => r.data),

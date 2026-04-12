@@ -37,6 +37,30 @@ def stock_indicators(code: str, db: Session = Depends(get_db)):
     return result or {"error": "데이터 없음"}
 
 
+@router.get("/batch")
+def batch_stock_info(codes: str = Query(..., description="종목코드 쉼표구분"), db: Session = Depends(get_db)):
+    """여러 종목의 지표+애널리스트를 한번에 조회 (캐시 활용)"""
+    code_list = [c.strip() for c in codes.split(",") if c.strip()]
+    result = {}
+    for code in code_list[:10]:  # 최대 10개
+        # 지표
+        ind_key = f"indicators_{code}"
+        ind = get_cache(db, ind_key, max_age_hours=6)
+        if not ind:
+            ind = fetch_stock_indicators(code)
+            if ind and "error" not in ind:
+                set_cache(db, ind_key, ind)
+        # 애널리스트
+        ana_key = f"analyst_{code}"
+        ana = get_cache(db, ana_key, max_age_hours=12)
+        if not ana:
+            ana = fetch_analyst_consensus(code)
+            if ana:
+                set_cache(db, ana_key, ana)
+        result[code] = {"indicators": ind, "analyst": ana}
+    return result
+
+
 @router.get("/analyst/{code}")
 def analyst_consensus(code: str, db: Session = Depends(get_db)):
     """애널리스트 컨센서스 (캐시 12시간)"""

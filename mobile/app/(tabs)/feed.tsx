@@ -133,10 +133,6 @@ export default function FeedScreen() {
     }, [filterChannelId])
   );
 
-  useEffect(() => {
-    fetchFeed();
-  }, [filterChannelId]);
-
   return (
     <ScrollView
       style={styles.container}

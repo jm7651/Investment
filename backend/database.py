@@ -1,4 +1,5 @@
 from sqlalchemy import create_engine
+from sqlalchemy.pool import QueuePool, StaticPool
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
@@ -12,12 +13,23 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./stock_summarizer.db")
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
 
-# SQLite는 check_same_thread 필요, PostgreSQL은 불필요
-connect_args = {}
+# DB별 최적 설정
 if DATABASE_URL.startswith("sqlite"):
-    connect_args["check_same_thread"] = False
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+else:
+    engine = create_engine(
+        DATABASE_URL,
+        poolclass=QueuePool,
+        pool_size=5,
+        max_overflow=10,
+        pool_pre_ping=True,
+        pool_recycle=300,
+    )
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

@@ -6,6 +6,7 @@ from database import get_db
 from models import Video, Channel, StockMention
 from services.youtube import get_channel_recent_videos, get_transcript
 from services.claude import summarize_video
+from services.cache import get_cache, set_cache
 
 router = APIRouter()
 
@@ -23,6 +24,10 @@ def weekly_feed(
     channel_id: int = None,
     db: Session = Depends(get_db),
 ):
+    cache_key = f"weekly_feed_{channel_id or 'all'}"
+    cached = get_cache(db, cache_key, max_age_hours=1)
+    if cached:
+        return cached
     """요약 완료된 영상을 주간 단위로 그룹 + 종목 집계"""
     query = db.query(Video).filter(Video.status == "summarized")
     if channel_id:
@@ -88,7 +93,10 @@ def weekly_feed(
             stock_info.values(), key=lambda x: -x["count"]
         )[:15]
 
-    return sorted(weeks.values(), key=lambda x: x["week_key"], reverse=True)
+    result = sorted(weeks.values(), key=lambda x: x["week_key"], reverse=True)
+    if result:
+        set_cache(db, cache_key, result)
+    return result
 
 
 @router.get("/{video_id}")

@@ -280,19 +280,8 @@ const pickStyles = StyleSheet.create({
   },
 });
 
-function MentionedStockCard({ stock }: { stock: any }) {
-  const [data, setData] = useState<any>(null);
-
-  useEffect(() => {
-    if (stock.code) {
-      Promise.all([
-        stocksApi.analyst(stock.code).catch(() => null),
-        stocksApi.indicators(stock.code).catch(() => null),
-      ]).then(([a, ind]) => {
-        setData({ analyst: a, indicators: ind });
-      });
-    }
-  }, [stock.code]);
+function MentionedStockCard({ stock, batchData }: { stock: any; batchData?: any }) {
+  const data = batchData || null;
 
   const c = data?.analyst?.consensus;
   const ind = data?.indicators;
@@ -466,6 +455,8 @@ export default function ReportsScreen() {
   // 추천 종목
   const [picks, setPicks] = useState<DailyPicks | null>(null);
   const [loadingPicks, setLoadingPicks] = useState(false);
+  // 종목 배치 데이터
+  const [stockBatchData, setStockBatchData] = useState<Record<string, any>>({});
   // 크로스체크
   const [crosscheck, setCrosscheck] = useState<CrosscheckResult | null>(null);
   const [loadingCross, setLoadingCross] = useState(false);
@@ -534,6 +525,16 @@ export default function ReportsScreen() {
     fetchTradesForDate(selectedDate);
     fetchCrosscheck(selectedDate);
   }, [selectedDate, dates]);
+
+  // 종목 배치 데이터 로드 (currentSummary 변경 시)
+  useEffect(() => {
+    if (!currentSummary?.stocks_mentioned) return;
+    const codes = currentSummary.stocks_mentioned
+      .map((s: any) => s.code)
+      .filter((c: string | null) => c && c.length === 6);
+    if (codes.length === 0) return;
+    stocksApi.batch(codes).then(setStockBatchData).catch(() => {});
+  }, [currentSummary]);
 
   // 추천 종목 (최초 1회)
   useEffect(() => {
@@ -801,7 +802,11 @@ export default function ReportsScreen() {
               <View style={styles.stocksSection}>
                 <Text style={styles.subTitle}>언급 종목</Text>
                 {currentSummary.stocks_mentioned.map((stock, i) => (
-                  <MentionedStockCard key={i} stock={stock} />
+                  <MentionedStockCard
+                    key={i}
+                    stock={stock}
+                    batchData={stock.code ? stockBatchData[stock.code] : undefined}
+                  />
                 ))}
               </View>
             )}
