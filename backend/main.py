@@ -1,14 +1,29 @@
 import os
-from fastapi import FastAPI
+import traceback
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from database import engine, Base
 from routers import channels, videos, stocks, reports
 
 # 테이블 생성
-Base.metadata.create_all(bind=engine)
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print(f"DB init warning: {e}")
 
 app = FastAPI(title="YouTube Stock Summarizer")
+
+# 글로벌 에러 핸들러 — 500 대신 빈 데이터 반환
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    print(f"ERROR: {request.url} -> {exc}")
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=200,
+        content={"error": str(exc), "data": None},
+    )
 
 app.add_middleware(GZipMiddleware, minimum_size=500)
 app.add_middleware(
