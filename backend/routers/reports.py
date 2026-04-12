@@ -9,6 +9,7 @@ from services.naver_research import (
 )
 from services.claude import summarize_video, summarize_daily_reports
 from services.investor_trading import fetch_all_investor_trades
+from services.cache import get_cache, set_cache
 from services.analyst import fetch_analyst_consensus
 from services.market_data import fetch_stock_indicators
 
@@ -18,15 +19,22 @@ router = APIRouter()
 # ──────────── 종목 추천 (애널리스트 적극매수 + 상승여력) ────────────
 
 @router.get("/picks")
-def analyst_picks():
-    """시장 전체에서 애널리스트 적극매수 + 상승여력 높은 종목
+def analyst_picks(db: Session = Depends(get_db)):
+    """시장 전체에서 애널리스트 적극매수 + 상승여력 높은 종목 (캐시 12시간)
     출처: FnGuide, Refinitiv"""
+    cached = get_cache(db, "analyst_picks", max_age_hours=12)
+    if cached:
+        return cached
+
     from services.analyst import fetch_strong_buy_picks
     picks = fetch_strong_buy_picks(limit=10)
-    return {
+    result = {
         "picks": picks,
         "source": "FnGuide, Refinitiv",
     }
+    if picks:
+        set_cache(db, "analyst_picks", result)
+    return result
 
 
 # ──────────── 날짜별 종합 요약 ────────────

@@ -55,6 +55,13 @@ class Report(Base):
     status = Column(String, default="pending")  # pending | summarized | failed
     created_at = Column(DateTime, default=datetime.utcnow)
 
+class CachedData(Base):
+    __tablename__ = "cached_data"
+    id = Column(Integer, primary_key=True)
+    key = Column(String, unique=True, nullable=False)
+    data = Column(JSON)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
 class DailySummary(Base):
     __tablename__ = "daily_summaries"
     id = Column(Integer, primary_key=True)

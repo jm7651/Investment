@@ -6,34 +6,50 @@ from database import get_db
 from models import StockMention
 from services.investor_trading import fetch_all_investor_trades
 from services.market_data import fetch_market_dashboard, fetch_stock_indicators
-from services.analyst import fetch_analyst_consensus
+from services.analyst import fetch_analyst_consensus, fetch_strong_buy_picks
+from services.cache import get_cache, set_cache
 
 router = APIRouter()
 
 
 @router.get("/market-dashboard")
-def market_dashboard():
-    """시장 대시보드 (코스피, 코스닥, 환율, WTI, 금)"""
-    return fetch_market_dashboard()
+def market_dashboard(db: Session = Depends(get_db)):
+    """시장 대시보드 (캐시 1시간)"""
+    cached = get_cache(db, "market_dashboard", max_age_hours=1)
+    if cached:
+        return cached
+    data = fetch_market_dashboard()
+    if data:
+        set_cache(db, "market_dashboard", data)
+    return data
 
 
 @router.get("/indicators/{code}")
-def stock_indicators(code: str):
-    """개별 종목 기술적 지표 (이평선, RSI, 52주 고저)"""
+def stock_indicators(code: str, db: Session = Depends(get_db)):
+    """개별 종목 기술적 지표 (캐시 6시간)"""
+    cache_key = f"indicators_{code}"
+    cached = get_cache(db, cache_key, max_age_hours=6)
+    if cached:
+        return cached
     result = fetch_stock_indicators(code)
-    if not result:
-        return {"error": "데이터 없음"}
-    return result
+    if result and "error" not in result:
+        set_cache(db, cache_key, result)
+    return result or {"error": "데이터 없음"}
 
 
 @router.get("/analyst/{code}")
-def analyst_consensus(code: str):
-    """애널리스트 컨센서스 (투자의견, 목표주가, 증권사별)
-    출처: FnGuide, Refinitiv"""
+def analyst_consensus(code: str, db: Session = Depends(get_db)):
+    """애널리스트 컨센서스 (캐시 12시간)"""
+    cache_key = f"analyst_{code}"
+    cached = get_cache(db, cache_key, max_age_hours=12)
+    if cached:
+        return cached
     result = fetch_analyst_consensus(code)
-    if not result:
-        return {"error": "데이터 없음"}
-    return result
+    if result:
+        set_cache(db, cache_key, result)
+        return result
+    return {"error": "데이터 없음"}
+
 
 @router.get("/")
 def list_stocks(db: Session = Depends(get_db)):
@@ -61,24 +77,34 @@ def list_stocks(db: Session = Depends(get_db)):
         for r in results
     ]
 
+
 @router.get("/investor-trades")
 def investor_trades(
     limit: int = Query(10, ge=1, le=30),
     target_date: str = Query(None, description="YYYY-MM-DD"),
+    db: Session = Depends(get_db),
 ):
-    """외국인/기관/개인 순매수·순매도 TOP N. target_date로 날짜 지정 가능"""
+    """외국인/기관/개인 순매수·순매도 (캐시 6시간)"""
     td = None
     if target_date:
         try:
             td = date.fromisoformat(target_date)
         except ValueError:
             pass
-    return fetch_all_investor_trades(limit=limit, target_date=td)
+
+    cache_key = f"investor_trades_{target_date or 'latest'}_{limit}"
+    cached = get_cache(db, cache_key, max_age_hours=6)
+    if cached:
+        return cached
+
+    data = fetch_all_investor_trades(limit=limit, target_date=td)
+    if data:
+        set_cache(db, cache_key, data)
+    return data
 
 
 @router.get("/{stock_name}/videos")
 def stock_videos(stock_name: str, db: Session = Depends(get_db)):
-    """특정 종목이 언급된 영상 목록"""
     mentions = (
         db.query(StockMention)
         .filter(StockMention.stock_name == stock_name)
