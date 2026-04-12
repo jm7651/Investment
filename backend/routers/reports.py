@@ -75,7 +75,12 @@ def get_daily_summary(date_str: str, db: Session = Depends(get_db)):
 
 @router.get("/daily/{date_str}/crosscheck")
 def crosscheck_daily(date_str: str, db: Session = Depends(get_db)):
-    """리포트 sentiment vs 실제 투자자 수급 교차 확인"""
+    """리포트 sentiment vs 실제 투자자 수급 교차 확인 (캐시 6시간)"""
+    cache_key = f"crosscheck_{date_str}"
+    cached = get_cache(db, cache_key, max_age_hours=6)
+    if cached:
+        return cached
+
     try:
         target = date.fromisoformat(date_str)
     except ValueError:
@@ -174,11 +179,14 @@ def crosscheck_daily(date_str: str, db: Session = Depends(get_db)):
     order = {"divergent": 0, "confirmed": 1, "neutral": 2}
     crosschecks.sort(key=lambda x: order.get(x["signal"], 3))
 
-    return {
+    result = {
         "date": date_str,
         "crosschecks": crosschecks,
         "summary": counts,
     }
+    if crosschecks:
+        set_cache(db, cache_key, result)
+    return result
 
 
 @router.post("/daily/{date_str}")
