@@ -4,12 +4,12 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from database import engine, Base
+from database import _get_engine, Base
 from routers import channels, videos, stocks, reports
 
 # 테이블 생성
 try:
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=_get_engine())
 except Exception as e:
     print(f"DB init warning: {e}")
 

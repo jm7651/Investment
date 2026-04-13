@@ -15,7 +15,7 @@ router = APIRouter()
 @router.get("/market-dashboard")
 def market_dashboard(db: Session = Depends(get_db)):
     """시장 대시보드 (캐시 1시간)"""
-    cached = get_cache(db, "market_dashboard", max_age_hours=1)
+    cached = get_cache(db, "market_dashboard", max_age_hours=4)
     if cached:
         return cached
     data = fetch_market_dashboard()
@@ -28,7 +28,7 @@ def market_dashboard(db: Session = Depends(get_db)):
 def stock_indicators(code: str, db: Session = Depends(get_db)):
     """개별 종목 기술적 지표 (캐시 6시간)"""
     cache_key = f"indicators_{code}"
-    cached = get_cache(db, cache_key, max_age_hours=24)
+    cached = get_cache(db, cache_key, max_age_hours=336)
     if cached:
         return cached
     result = fetch_stock_indicators(code)
@@ -45,14 +45,14 @@ def batch_stock_info(codes: str = Query(..., description="종목코드 쉼표구
     for code in code_list[:10]:  # 최대 10개
         # 지표
         ind_key = f"indicators_{code}"
-        ind = get_cache(db, ind_key, max_age_hours=24)
+        ind = get_cache(db, ind_key, max_age_hours=336)
         if not ind:
             ind = fetch_stock_indicators(code)
             if ind and "error" not in ind:
                 set_cache(db, ind_key, ind)
         # 애널리스트
         ana_key = f"analyst_{code}"
-        ana = get_cache(db, ana_key, max_age_hours=12)
+        ana = get_cache(db, ana_key, max_age_hours=336)
         if not ana:
             ana = fetch_analyst_consensus(code)
             if ana:
@@ -65,7 +65,7 @@ def batch_stock_info(codes: str = Query(..., description="종목코드 쉼표구
 def analyst_consensus(code: str, db: Session = Depends(get_db)):
     """애널리스트 컨센서스 (캐시 12시간)"""
     cache_key = f"analyst_{code}"
-    cached = get_cache(db, cache_key, max_age_hours=12)
+    cached = get_cache(db, cache_key, max_age_hours=336)
     if cached:
         return cached
     result = fetch_analyst_consensus(code)
@@ -117,7 +117,7 @@ def investor_trades(
             pass
 
     cache_key = f"investor_trades_{target_date or 'latest'}_{limit}"
-    cached = get_cache(db, cache_key, max_age_hours=24)
+    cached = get_cache(db, cache_key, max_age_hours=336)
     if cached:
         return cached
 

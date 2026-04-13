@@ -25,7 +25,7 @@ def weekly_feed(
     db: Session = Depends(get_db),
 ):
     cache_key = f"weekly_feed_{channel_id or 'all'}"
-    cached = get_cache(db, cache_key, max_age_hours=1)
+    cached = get_cache(db, cache_key, max_age_hours=336)
     if cached:
         return cached
     """요약 완료된 영상을 주간 단위로 그룹 + 종목 집계"""
