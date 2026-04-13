@@ -33,6 +33,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/debug/env")
+def debug_env():
+    db_url = os.getenv("DATABASE_URL", "NOT_SET")
+    return {"db_url_start": db_url[:30] if db_url else "NONE", "len": len(db_url)}
+
 app.include_router(channels.router, prefix="/channels", tags=["channels"])
 app.include_router(videos.router, prefix="/videos", tags=["videos"])
 app.include_router(stocks.router, prefix="/stocks", tags=["stocks"])
