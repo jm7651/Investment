@@ -38,6 +38,22 @@ def debug_env():
     db_url = os.getenv("DATABASE_URL", "NOT_SET")
     return {"db_url_start": db_url[:30] if db_url else "NONE", "len": len(db_url)}
 
+@app.post("/debug/fix")
+def fix_data():
+    """failed 삭제 + picks 캐시 클리어"""
+    from database import get_db
+    from models import DailySummary, CachedData
+    db = next(get_db())
+    try:
+        # failed 삭제
+        deleted = db.query(DailySummary).filter(DailySummary.status == "failed").delete()
+        # picks 캐시 삭제
+        db.query(CachedData).filter(CachedData.key == "analyst_picks").delete()
+        db.commit()
+        return {"deleted_failed": deleted, "picks_cache_cleared": True}
+    finally:
+        db.close()
+
 @app.get("/debug/db")
 def debug_db():
     from database import get_db, _get_engine
