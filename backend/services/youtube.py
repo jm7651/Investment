@@ -54,21 +54,32 @@ def resolve_channel_id(input_str: str) -> str:
     return input_str  # 변환 실패 시 원본 반환
 
 def get_transcript(video_id: str) -> str | None:
-    """yt-dlp로 자막 추출. 실패시 None 반환"""
-    ydl_opts = {
-        "skip_download": True,
-        "writesubtitles": True,
-        "writeautomaticsub": True,
-        "subtitleslangs": ["ko", "en"],
-        "quiet": True,
-    }
+    """자막 추출 (youtube-transcript-api 우선, yt-dlp fallback)"""
+    # 1) youtube-transcript-api (서버리스 호환)
     try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+        ytt = YouTubeTranscriptApi()
+        transcript = ytt.fetch(video_id, languages=["ko", "en"])
+        text = " ".join(t.text for t in transcript)
+        if len(text) > 50:
+            return text
+    except Exception as e:
+        print(f"youtube-transcript-api 실패 {video_id}: {e}")
+
+    # 2) yt-dlp fallback (로컬에서만)
+    try:
+        ydl_opts = {
+            "skip_download": True,
+            "writesubtitles": True,
+            "writeautomaticsub": True,
+            "subtitleslangs": ["ko", "en"],
+            "quiet": True,
+        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(
                 f"https://www.youtube.com/watch?v={video_id}",
                 download=False
             )
-            # 수동 자막 우선, 없으면 자동 자막
             for subs_dict in [info.get("subtitles", {}), info.get("automatic_captions", {})]:
                 for lang in ["ko", "en"]:
                     if lang not in subs_dict:
@@ -76,35 +87,12 @@ def get_transcript(video_id: str) -> str | None:
                     entries = subs_dict[lang]
                     if not entries:
                         continue
-
-                    # case 1: 이미 text가 있는 경우
                     texts = [e.get("text", "") for e in entries if e.get("text")]
                     if texts:
                         return " ".join(texts)
-
-                    # case 2: URL에서 다운로드 필요 (json3 형식 우선)
-                    for entry in entries:
-                        if entry.get("ext") == "json3" and entry.get("url"):
-                            try:
-                                req = urllib.request.Request(entry["url"], headers={"User-Agent": "Mozilla/5.0"})
-                                resp = urllib.request.urlopen(req, timeout=15)
-                                import json
-                                data = json.loads(resp.read())
-                                events = data.get("events", [])
-                                lines = []
-                                for ev in events:
-                                    segs = ev.get("segs", [])
-                                    for seg in segs:
-                                        t = seg.get("utf8", "").strip()
-                                        if t and t != "\n":
-                                            lines.append(t)
-                                if lines:
-                                    return " ".join(lines)
-                            except Exception as e:
-                                print(f"자막 URL 다운로드 실패: {e}")
-                                continue
     except Exception as e:
-        print(f"자막 추출 실패 {video_id}: {e}")
+        print(f"yt-dlp 자막 실패 {video_id}: {e}")
+
     return None
 
 def get_channel_recent_videos(channel_id: str, max_results: int = 10) -> list:

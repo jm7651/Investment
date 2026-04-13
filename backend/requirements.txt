@@ -8,5 +8,6 @@ beautifulsoup4
 pydantic
 pg8000
 yt-dlp
+youtube-transcript-api
 PyMuPDF
 google-api-python-client
