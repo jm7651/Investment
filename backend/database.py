@@ -27,10 +27,14 @@ def _get_engine():
             encoded_pw = quote(parsed.password, safe="")
             db_url = db_url.replace(f":{parsed.password}@", f":{encoded_pw}@", 1)
         db_url = db_url.replace("postgresql://", "postgresql+pg8000://", 1)
+        import ssl
+        ssl_ctx = ssl.create_default_context()
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = ssl.CERT_NONE
         _engine = create_engine(
             db_url,
-            poolclass=NullPool,  # 서버리스에 적합
-            connect_args={"ssl_context": True},
+            poolclass=NullPool,
+            connect_args={"ssl_context": ssl_ctx},
         )
     else:
         _engine = create_engine(
