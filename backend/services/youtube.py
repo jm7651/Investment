@@ -108,13 +108,18 @@ def get_transcript(video_id: str) -> str | None:
     return None
 
 def get_channel_recent_videos(channel_id: str, max_results: int = 10) -> list:
-    """채널 최신 영상 목록 조회 (yt-dlp 우선, YouTube API fallback)"""
-    # 1) yt-dlp로 시도 (API 키 불필요)
+    """채널 최신 영상 목록 조회 (RSS 우선 → yt-dlp → YouTube API)"""
+    # 1) RSS 피드 (가장 빠르고 서버리스에서도 동작)
+    videos = _get_videos_rss(channel_id, max_results)
+    if videos:
+        return videos
+
+    # 2) yt-dlp (로컬에서만 동작)
     videos = _get_videos_ytdlp(channel_id, max_results)
     if videos:
         return videos
 
-    # 2) YouTube Data API fallback
+    # 3) YouTube Data API fallback
     if not YOUTUBE_API_KEY:
         return []
     try:
@@ -136,6 +141,35 @@ def get_channel_recent_videos(channel_id: str, max_results: int = 10) -> list:
         ]
     except Exception as e:
         print(f"YouTube API 오류: {e}")
+        return []
+
+
+def _get_videos_rss(channel_id: str, max_results: int = 15) -> list:
+    """YouTube RSS 피드로 최신 영상 목록 (서버리스 호환, 최대 15개)"""
+    try:
+        import requests as req
+        url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
+        resp = req.get(url, timeout=10)
+        if resp.status_code != 200:
+            return []
+
+        xml = resp.text
+        entries = re.findall(r"<entry>(.*?)</entry>", xml, re.DOTALL)
+        videos = []
+        for e in entries[:max_results]:
+            vid_m = re.search(r"<yt:videoId>(.*?)</yt:videoId>", e)
+            title_m = re.search(r"<title>(.*?)</title>", e)
+            pub_m = re.search(r"<published>(.*?)</published>", e)
+            if not vid_m:
+                continue
+            videos.append({
+                "youtube_id": vid_m.group(1),
+                "title": title_m.group(1) if title_m else "",
+                "published_at": pub_m.group(1) if pub_m else None,
+            })
+        return videos
+    except Exception as e:
+        print(f"RSS 피드 실패 ({channel_id}): {e}")
         return []
 
 
