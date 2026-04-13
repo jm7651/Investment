@@ -38,6 +38,23 @@ def debug_env():
     db_url = os.getenv("DATABASE_URL", "NOT_SET")
     return {"db_url_start": db_url[:30] if db_url else "NONE", "len": len(db_url)}
 
+@app.get("/debug/db")
+def debug_db():
+    from database import get_db, _get_engine
+    from models import DailySummary, CachedData
+    from sqlalchemy.orm import Session
+    db = next(get_db())
+    try:
+        summaries = db.query(DailySummary).all()
+        caches = db.query(CachedData).all()
+        return {
+            "summaries": [{"date": str(ds.date), "status": ds.status} for ds in summaries],
+            "caches": [{"key": c.key, "updated": str(c.updated_at)} for c in caches],
+            "engine_url": str(_get_engine().url)[:50],
+        }
+    finally:
+        db.close()
+
 app.include_router(channels.router, prefix="/channels", tags=["channels"])
 app.include_router(videos.router, prefix="/videos", tags=["videos"])
 app.include_router(stocks.router, prefix="/stocks", tags=["stocks"])
