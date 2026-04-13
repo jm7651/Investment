@@ -28,7 +28,7 @@ def market_dashboard(db: Session = Depends(get_db)):
 def stock_indicators(code: str, db: Session = Depends(get_db)):
     """개별 종목 기술적 지표 (캐시 6시간)"""
     cache_key = f"indicators_{code}"
-    cached = get_cache(db, cache_key, max_age_hours=6)
+    cached = get_cache(db, cache_key, max_age_hours=24)
     if cached:
         return cached
     result = fetch_stock_indicators(code)
@@ -45,7 +45,7 @@ def batch_stock_info(codes: str = Query(..., description="종목코드 쉼표구
     for code in code_list[:10]:  # 최대 10개
         # 지표
         ind_key = f"indicators_{code}"
-        ind = get_cache(db, ind_key, max_age_hours=6)
+        ind = get_cache(db, ind_key, max_age_hours=24)
         if not ind:
             ind = fetch_stock_indicators(code)
             if ind and "error" not in ind:
@@ -117,7 +117,7 @@ def investor_trades(
             pass
 
     cache_key = f"investor_trades_{target_date or 'latest'}_{limit}"
-    cached = get_cache(db, cache_key, max_age_hours=6)
+    cached = get_cache(db, cache_key, max_age_hours=24)
     if cached:
         return cached
 

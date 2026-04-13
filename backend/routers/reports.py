@@ -77,7 +77,7 @@ def get_daily_summary(date_str: str, db: Session = Depends(get_db)):
 def crosscheck_daily(date_str: str, db: Session = Depends(get_db)):
     """리포트 sentiment vs 실제 투자자 수급 교차 확인 (캐시 6시간)"""
     cache_key = f"crosscheck_{date_str}"
-    cached = get_cache(db, cache_key, max_age_hours=6)
+    cached = get_cache(db, cache_key, max_age_hours=24)
     if cached:
         return cached
 
