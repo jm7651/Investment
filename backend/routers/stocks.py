@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import date
+from datetime import date, timedelta
+from collections import defaultdict
 from database import get_db
-from models import StockMention
+from models import StockMention, DailySummary
 from services.investor_trading import fetch_all_investor_trades
 from services.market_data import fetch_market_dashboard, fetch_stock_indicators
 from services.analyst import fetch_analyst_consensus, fetch_strong_buy_picks
@@ -73,6 +74,79 @@ def analyst_consensus(code: str, db: Session = Depends(get_db)):
         set_cache(db, cache_key, result)
         return result
     return {"error": "데이터 없음"}
+
+
+@router.get("/heatmap")
+def stock_heatmap(days: int = Query(7, ge=3, le=14), db: Session = Depends(get_db)):
+    """종목 히트맵: 최근 N일간 리포트 언급 빈도 (캐시 4시간)"""
+    cache_key = f"heatmap_{days}"
+    cached = get_cache(db, cache_key, max_age_hours=4)
+    if cached:
+        return cached
+
+    summaries = (
+        db.query(DailySummary)
+        .filter(DailySummary.status == "summarized")
+        .order_by(DailySummary.date.desc())
+        .limit(days)
+        .all()
+    )
+
+    if not summaries:
+        return {"dates": [], "stocks": []}
+
+    dates_list = sorted(set(ds.date.isoformat() for ds in summaries))
+
+    # 종목별 일자별 데이터
+    stock_data = defaultdict(lambda: {"days": {}, "total": 0, "latest_sentiment": "neutral"})
+
+    for ds in summaries:
+        day = ds.date.isoformat()
+        for s in (ds.stocks_mentioned or []):
+            name = s.get("name", "")
+            if not name:
+                continue
+            sentiment = s.get("sentiment", "neutral")
+            count = s.get("mentioned_count", 1)
+            stock_data[name]["days"][day] = {"count": count, "sentiment": sentiment}
+            stock_data[name]["total"] += count
+            stock_data[name]["latest_sentiment"] = sentiment
+            if "code" not in stock_data[name]:
+                stock_data[name]["code"] = s.get("code")
+
+    # 2일 이상 언급된 종목만, 총 언급 횟수 순
+    stocks = []
+    for name, data in stock_data.items():
+        if len(data["days"]) < 2:
+            continue
+        # 연속 언급일 계산
+        streak = _calc_streak(data["days"], dates_list)
+        stocks.append({
+            "name": name,
+            "code": data.get("code"),
+            "total_mentions": data["total"],
+            "days_mentioned": len(data["days"]),
+            "streak": streak,
+            "latest_sentiment": data["latest_sentiment"],
+            "daily": {d: data["days"].get(d, None) for d in dates_list},
+        })
+
+    stocks.sort(key=lambda x: (-x["days_mentioned"], -x["total_mentions"]))
+
+    result = {"dates": dates_list, "stocks": stocks[:20]}
+    set_cache(db, cache_key, result)
+    return result
+
+
+def _calc_streak(days_dict: dict, all_dates: list) -> int:
+    """최근부터 연속 언급일 수 계산"""
+    streak = 0
+    for d in reversed(all_dates):
+        if d in days_dict:
+            streak += 1
+        else:
+            break
+    return streak
 
 
 @router.get("/")

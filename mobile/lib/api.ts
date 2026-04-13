@@ -180,7 +180,24 @@ export interface InvestorTrades {
   };
 }
 
+export interface HeatmapStock {
+  name: string;
+  code: string | null;
+  total_mentions: number;
+  days_mentioned: number;
+  streak: number;
+  latest_sentiment: string;
+  daily: Record<string, { count: number; sentiment: string } | null>;
+}
+
+export interface HeatmapData {
+  dates: string[];
+  stocks: HeatmapStock[];
+}
+
 export const stocksApi = {
+  heatmap: (days?: number) =>
+    api.get<HeatmapData>("/stocks/heatmap", { params: { days } }).then((r) => r.data),
   marketDashboard: () =>
     api.get<MarketDashboard>("/stocks/market-dashboard").then((r) => r.data),
   indicators: (code: string) =>

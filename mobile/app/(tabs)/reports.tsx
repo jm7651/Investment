@@ -17,6 +17,8 @@ import {
   CrosscheckResult,
   CrosscheckItem,
   MarketDashboard,
+  HeatmapData,
+  HeatmapStock,
   DailyPicks,
   StockPick,
   reportsApi,
@@ -166,6 +168,117 @@ const dashStyles = StyleSheet.create({
   label: { fontSize: 10, color: "#8E8E8E", fontWeight: "500" },
   value: { fontSize: 13, color: "#fff", fontWeight: "500", marginTop: 2 },
   change: { fontSize: 10, fontWeight: "600", marginTop: 1 },
+});
+
+function HeatmapSection({ data }: { data: HeatmapData }) {
+  if (!data.stocks.length) return null;
+
+  const dateLabels = data.dates.map((d) => {
+    const dt = new Date(d);
+    return `${dt.getMonth() + 1}/${dt.getDate()}`;
+  });
+
+  const sentimentBg = (s: string | undefined) => {
+    if (!s) return "transparent";
+    if (s === "bullish") return "#16a34a";
+    if (s === "bearish") return "#dc2626";
+    return "#8E8E8E";
+  };
+
+  return (
+    <View style={heatStyles.section}>
+      <Text style={heatStyles.title}>종목 히트맵</Text>
+      <Text style={heatStyles.subtitle}>최근 리포트에서 반복 언급된 종목</Text>
+
+      {/* 헤더 */}
+      <View style={heatStyles.row}>
+        <View style={heatStyles.nameCol}>
+          <Text style={heatStyles.headerText}>종목</Text>
+        </View>
+        {dateLabels.map((label, i) => (
+          <View key={i} style={heatStyles.cell}>
+            <Text style={heatStyles.dateLabel}>{label}</Text>
+          </View>
+        ))}
+        <View style={heatStyles.streakCol}>
+          <Text style={heatStyles.headerText}>연속</Text>
+        </View>
+      </View>
+
+      {/* 종목 행 */}
+      {data.stocks.map((stock, i) => (
+        <View key={i} style={heatStyles.row}>
+          <View style={heatStyles.nameCol}>
+            <Text style={heatStyles.stockName} numberOfLines={1}>{stock.name}</Text>
+          </View>
+          {data.dates.map((d, j) => {
+            const cell = stock.daily[d];
+            return (
+              <View
+                key={j}
+                style={[
+                  heatStyles.cell,
+                  {
+                    backgroundColor: cell
+                      ? sentimentBg(cell.sentiment)
+                      : "#F4F4F4",
+                    opacity: cell ? 0.2 + Math.min(cell.count * 0.2, 0.8) : 0.3,
+                  },
+                ]}
+              >
+                {cell && (
+                  <Text style={heatStyles.cellText}>
+                    {cell.sentiment === "bullish" ? "▲" : cell.sentiment === "bearish" ? "▼" : "−"}
+                  </Text>
+                )}
+              </View>
+            );
+          })}
+          <View style={heatStyles.streakCol}>
+            {stock.streak >= 3 ? (
+              <Text style={heatStyles.streakHot}>{stock.streak}일</Text>
+            ) : (
+              <Text style={heatStyles.streakNormal}>{stock.streak}일</Text>
+            )}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const heatStyles = StyleSheet.create({
+  section: {
+    margin: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 4,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#EEEEEE",
+  },
+  title: { fontSize: 16, fontWeight: "500", color: "#171A20" },
+  subtitle: { fontSize: 11, color: "#8E8E8E", marginTop: 2, marginBottom: 12 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  nameCol: { width: 90 },
+  headerText: { fontSize: 10, color: "#8E8E8E", fontWeight: "500" },
+  stockName: { fontSize: 12, fontWeight: "500", color: "#171A20" },
+  cell: {
+    flex: 1,
+    height: 28,
+    borderRadius: 3,
+    marginHorizontal: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cellText: { fontSize: 10, color: "#FFFFFF", fontWeight: "500" },
+  dateLabel: { fontSize: 9, color: "#8E8E8E" },
+  streakCol: { width: 36, alignItems: "center" },
+  streakHot: { fontSize: 11, fontWeight: "500", color: "#dc2626" },
+  streakNormal: { fontSize: 11, color: "#8E8E8E" },
 });
 
 function PickCard({ pick }: { pick: StockPick }) {
@@ -452,6 +565,8 @@ export default function ReportsScreen() {
   const [loadingTrades, setLoadingTrades] = useState(false);
   // 시장 대시보드
   const [market, setMarket] = useState<MarketDashboard | null>(null);
+  // 히트맵
+  const [heatmap, setHeatmap] = useState<HeatmapData | null>(null);
   // 추천 종목
   const [picks, setPicks] = useState<DailyPicks | null>(null);
   const [loadingPicks, setLoadingPicks] = useState(false);
@@ -513,6 +628,7 @@ export default function ReportsScreen() {
   useEffect(() => {
     fetchDates();
     stocksApi.marketDashboard().then(setMarket).catch(() => {});
+    stocksApi.heatmap(7).then(setHeatmap).catch(() => {});
   }, []);
 
   // 선택 날짜 바뀌면 캐시에서 로드 시도 + 투자자 매매도 fetch
@@ -644,6 +760,9 @@ export default function ReportsScreen() {
     <ScrollView style={styles.container}>
       {/* 시장 대시보드 */}
       {market && <MarketDashboardBar data={market} />}
+
+      {/* 히트맵 */}
+      {heatmap && <HeatmapSection data={heatmap} />}
 
       {/* 추천 종목 */}
       {loadingPicks && (
